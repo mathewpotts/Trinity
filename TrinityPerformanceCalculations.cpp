@@ -73,6 +73,25 @@ double absorptionlength[] = { 16.7647, 16.8572, 18.3202, 19.4597};
 //par[0]*exp(-xx/par[1])+par[2]*exp(-xx/(par[3]+xx*par[4]))
 double parPEF[] = { 0.00038827, 0.555588, 4.66631e-05, 1.90266, 0.0426453};
 */
+
+// Parameterization of PE distribution with timing at 40km,0 ele,and 2km altitude
+//obtained from 1e6 GeV gamma rays with 30ns trigger window
+double DetectorAltitude2[] = { 2};
+double lincorr2[] = { 0.04};
+double scalefirst2[] = { 1};
+double eleScaling2[] = { 0.00501044};
+double absorptionlength2[] = { 20};
+double parPEF2[] = { 2.48128e-09, 0.971087, 0.000211414, 1.04562, 0.0346362};
+
+// Parameterization of PE distribution with timing at 80km,0 ele,and 2km altitude
+//obtained from 1e6 GeV gamma rays with 30ns trigger window
+double DetectorAltitude3[] = { 2};
+double lincorr3[] = { 0.0786967};
+double scalefirst3[] = { 1};
+double eleScaling3[] = { 0.00170477};
+double absorptionlength3[] = { 20};
+double parPEF3[] = { 3.41281e-05, 0.911229, 1.30399e-05, 1.24591, 0.032254};
+
 ///////////////////////
 
 Double_t dMinEnu = 8.5;
@@ -157,7 +176,62 @@ Double_t myPEfunction(Double_t *x, Double_t *par)
    return f;
 }
 
+/*
+ Modeled after Nepomuk's PE function. This parameterization includes trigger timing using a 30 ns trigger window around the median of the timing distribution. This function is only valid for 2km and uses two master distributions. One taken at 45 km and 85km. 
+*/ 
+Double_t myPEfunction_30ns(Double_t *x, Double_t *par)
+{
+  // par[0] is distance 
+  Double_t l = par[0];
+  // par[1] is elevation 
+  Double_t elv = par[1];
+  // x is azimuth angle in rad
+  Double_t azi = x[0];
+
+  if (azi > 0.69813170) // if > 40 degrees then return 0
+    return 0; 
+
+ 
+  Double_t dTelAngle = atan(DetectorAltitude[iConfig]*1e-3/l);
+  Double_t dAngle = sqrt(azi*azi + (elv-dTelAngle)*(elv-dTelAngle))*57.295780; //in deg
+  //calculate how many PEs / per m2 per GeV
+  Double_t f = 0;
+
+  //Calculate azimuth angle in frame of master pe distribution (40km, 0ele,2km altitude)
+  // if l < 50 km
+  if (l < 50){
+    if(dAngle<1.3)
+      f = parPEF2[0]*exp(-1.1/parPEF2[1])+parPEF2[2]*exp(-1.1/(parPEF2[3]+1.1*parPEF2[4]));
+    else
+      f = parPEF2[0]*exp(-(dAngle+0.19*azi)/parPEF2[1])+parPEF2[2]*exp(-(dAngle+0.19*azi)/(parPEF2[3]+(dAngle+0.19*azi)*parPEF2[4]));
+    
+    //scale PE distribution to first PE distribution at 50km distance
+    f*=  3.3*scalefirst2[0]; // Scale is 1 at master distribution height
+    //Get elevation dependence
+    f*= (2-exp(-elv));
+    //Get Distance dependence
+    f*=  exp(-(l-45)/
+	     (absorptionlength2[0]+(l-45)*lincorr2[0])); //40km is the distance for which the normalized PE distribution is extracted
+  } else {
+    //Calculate azimuth angle in frame of master pe distribution (80km, 0ele,2km altitude)
+    // if >= 50 km
+    if(dAngle<1.3)
+      f = parPEF3[0]*exp(-1.1/parPEF3[1])+parPEF3[2]*exp(-1.1/(parPEF3[3]+1.1*parPEF3[4]));
+    else
+      f = parPEF3[0]*exp(-dAngle/parPEF3[1])+parPEF3[2]*exp(-dAngle/(parPEF3[3]+dAngle*parPEF3[4]));
+    
+    //scale PE distribution to first PE distribution at 50km distance
+    f*=   scalefirst3[0]; // Scale is 1 at master distribution height
+    //Get elevation dependence
+    f*= (2-exp(-elv/eleScaling3[0]));
+    //Get Distance dependence
+    f*=  exp(-(l-85)/
+	     (absorptionlength3[0]+(l-85)*lincorr3[0])); //80km is the distance for which the normalized PE distribution is extracted
+    }
   
+  
+  return f; // return number of photoelectrons arriving at camera in trigger window
+}  
 
 Double_t DistanceThroughEarth(Double_t y, Double_t elevation, Double_t azimuth)
 {
@@ -2050,7 +2124,7 @@ int main (int argc, char **argv) {
                           
 //cout<<PDecayFluorescence(1e9,10,3,170)<<endl;;
 
-fPE = new TF1("fPE",myPEfunction,0,40,2);
+fPE = new TF1("fPE",myPEfunction_30ns,0,40,2);
 
 //TLegend *leg = new TLegend(0.14,0.6,0.31,0.87);
 grsCC = new TGraph(19, Esig, sigma);
@@ -2155,7 +2229,7 @@ legend->Draw();
 //Sensitivity calculation starts here
 bFluorescence = kFALSE;
 
-//CalculateAcceptanceVsImageLength(hTau);
+CalculateAcceptanceVsImageLength(hTau);
 
 //CalculateAcceptanceVsUpperFoV(hTau);
 //
@@ -2168,7 +2242,7 @@ bFluorescence = kFALSE;
 //CalculateAcceptanceVsEnergy(hTau);
 //
 //CalculateIntegralSensitivity(hTau);
-CalculateDifferentialSensitivity(hTau);
+//CalculateDifferentialSensitivity(hTau);
 //
 
 /*
