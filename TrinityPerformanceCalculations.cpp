@@ -75,22 +75,22 @@ double parPEF[] = { 0.00038827, 0.555588, 4.66631e-05, 1.90266, 0.0426453};
 */
 
 // Parameterization of PE distribution with timing at 40km,0 ele,and 2km altitude
-//obtained from 1e6 GeV gamma rays with 30ns trigger window
-double DetectorAltitude2[] = { 2};
-double lincorr2[] = { 0.04};
-double scalefirst2[] = { 1};
-double eleScaling2[] = { 0.00501044};
-double absorptionlength2[] = { 20};
-double parPEF2[] = { 2.48128e-09, 0.971087, 0.000211414, 1.04562, 0.0346362};
+//obtained from 1e6 GeV gamma rays with various ns trigger window (15,30,45)
+double DetectorAltitude2[] = { 2, 2, 2};
+double lincorr2[] = { 0.04, 0.04, 0.04};
+double scalefirst2[] = { 1, 1, 1};
+double eleScaling2[] = { 0.00499707, 0.00501046, 0.0049938};
+double absorptionlength2[] = { 20, 20, 20};
+double parPEF2[3][5] = {{ 6.77183e-05, 0.599578, 0.000109705, 1.04491, 0.0346329}, { 2.48094e-09, 0.971087, 0.000211414, 1.04562, 0.0346362}, { 4.93947e-09, 0.384049, 0.000275539, 1.07095, 0.0344304}};
 
 // Parameterization of PE distribution with timing at 80km,0 ele,and 2km altitude
-//obtained from 1e6 GeV gamma rays with 30ns trigger window
-double DetectorAltitude3[] = { 2};
-double lincorr3[] = { 0.0786967};
-double scalefirst3[] = { 1};
-double eleScaling3[] = { 0.00170477};
-double absorptionlength3[] = { 20};
-double parPEF3[] = { 3.41281e-05, 0.911229, 1.30399e-05, 1.24591, 0.032254};
+//obtained from 1e6 GeV gamma rays with various trigger windows (15,30,45)
+double DetectorAltitude3[] = { 2, 2, 2};
+double lincorr3[] = { 0.0792027, 0.0786967, 0.0782509};
+double scalefirst3[] = { 1, 1, 1};
+double eleScaling3[] = { 0.00169174, 0.00170477, 0.00172341};
+double absorptionlength3[] = { 20, 20, 20};
+double parPEF3[3][5] = {{ 4.8878e-05, 0.765578, 7.53198e-06, 1.22237, 0.0324224},{ 3.41281e-05, 0.911229, 1.30399e-05, 1.24591, 0.032254}, { 1.84094e-05, 1, 2.07172e-05, 1.23037, 0.0323958}};
 
 ///////////////////////
 
@@ -177,14 +177,16 @@ Double_t myPEfunction(Double_t *x, Double_t *par)
 }
 
 /*
- Modeled after Nepomuk's PE function. This parameterization includes trigger timing using a 30 ns trigger window around the median of the timing distribution. This function is only valid for 2km and uses two master distributions. One taken at 45 km and 85km. 
+ Modeled after Nepomuk's PE function. This parameterization includes trigger timing using a 15,30,45 ns trigger window around the median of the timing distribution. This function is only valid for 2km and uses two master distributions. One taken at 45 km and 85km. 
 */ 
-Double_t myPEfunction_30ns(Double_t *x, Double_t *par)
+Double_t myPEfunction_trigwindow(Double_t *x, Double_t *par)
 {
   // par[0] is distance 
   Double_t l = par[0];
   // par[1] is elevation 
   Double_t elv = par[1];
+  // par[2] is trig time window index
+  Int_t ti = par[2];
   // x is azimuth angle in rad
   Double_t azi = x[0];
 
@@ -201,32 +203,32 @@ Double_t myPEfunction_30ns(Double_t *x, Double_t *par)
   // if l < 50 km
   if (l < 50){
     if(dAngle<1.3)
-      f = parPEF2[0]*exp(-1.1/parPEF2[1])+parPEF2[2]*exp(-1.1/(parPEF2[3]+1.1*parPEF2[4]));
+      f = parPEF2[ti][0]*exp(-1.1/parPEF2[ti][1])+parPEF2[ti][2]*exp(-1.1/(parPEF2[ti][3]+1.1*parPEF2[ti][4]));
     else
-      f = parPEF2[0]*exp(-(dAngle+0.19*azi)/parPEF2[1])+parPEF2[2]*exp(-(dAngle+0.19*azi)/(parPEF2[3]+(dAngle+0.19*azi)*parPEF2[4]));
+      f = parPEF2[ti][0]*exp(-(dAngle+0.19*azi)/parPEF2[ti][1])+parPEF2[ti][2]*exp(-(dAngle+0.19*azi)/(parPEF2[ti][3]+(dAngle+0.19*azi)*parPEF2[ti][4]));
     
     //scale PE distribution to first PE distribution at 50km distance
-    f*=  3.3*scalefirst2[0]; // Scale is 1 at master distribution height
+    f*=  3.3*scalefirst2[ti]; // Scale is 1 at master distribution height
     //Get elevation dependence
     f*= (2-exp(-elv));
     //Get Distance dependence
     f*=  exp(-(l-45)/
-	     (absorptionlength2[0]+(l-45)*lincorr2[0])); //40km is the distance for which the normalized PE distribution is extracted
+	     (absorptionlength2[ti]+(l-45)*lincorr2[ti])); //40km is the distance for which the normalized PE distribution is extracted
   } else {
     //Calculate azimuth angle in frame of master pe distribution (80km, 0ele,2km altitude)
     // if >= 50 km
     if(dAngle<1.3)
-      f = parPEF3[0]*exp(-1.1/parPEF3[1])+parPEF3[2]*exp(-1.1/(parPEF3[3]+1.1*parPEF3[4]));
+      f = parPEF3[ti][0]*exp(-1.1/parPEF3[ti][1])+parPEF3[ti][2]*exp(-1.1/(parPEF3[ti][3]+1.1*parPEF3[ti][4]));
     else
-      f = parPEF3[0]*exp(-dAngle/parPEF3[1])+parPEF3[2]*exp(-dAngle/(parPEF3[3]+dAngle*parPEF3[4]));
+      f = parPEF3[ti][0]*exp(-dAngle/parPEF3[ti][1])+parPEF3[ti][2]*exp(-dAngle/(parPEF3[ti][3]+dAngle*parPEF3[ti][4]));
     
     //scale PE distribution to first PE distribution at 50km distance
-    f*=   scalefirst3[0]; // Scale is 1 at master distribution height
+    f*=   scalefirst3[ti]; // Scale is 1 at master distribution height
     //Get elevation dependence
-    f*= (2-exp(-elv/eleScaling3[0]));
+    f*= (2-exp(-elv/eleScaling3[ti]));
     //Get Distance dependence
     f*=  exp(-(l-85)/
-	     (absorptionlength3[0]+(l-85)*lincorr3[0])); //80km is the distance for which the normalized PE distribution is extracted
+	     (absorptionlength3[ti]+(l-85)*lincorr3[ti])); //80km is the distance for which the normalized PE distribution is extracted
     }
   
   
@@ -2121,198 +2123,201 @@ int main (int argc, char **argv) {
   //read tables to use NuTauSimResults	
   readFromTable() ;
   findAngleNumber() ;
-                          
-//cout<<PDecayFluorescence(1e9,10,3,170)<<endl;;
-
-fPE = new TF1("fPE",myPEfunction_30ns,0,40,2);
-
-//TLegend *leg = new TLegend(0.14,0.6,0.31,0.87);
-grsCC = new TGraph(19, Esig, sigma);
-grsNC = new TGraph(19, Esig, sigmaNC);
-
-hTriggeredAzimuthAngles = new TH1D("hTriggeredAzimuthAngles","",int(180/DeltaAngleAz),0,180);
-hTriggeredAzimuthAngles->GetXaxis()->SetTitle("angle #alpha [degrees]");
-hTriggeredAzimuthAngles->GetYaxis()->SetTitle("probability");
-hTriggeredAzimuthAngles->SetLineWidth(2);
-hTriggeredAzimuthAngles->SetLineColor(kBlue+3);
-
-//plot the probability that a tau emerges when a neutrino hits the Earth
-PlotEmergenceProbability();
-cout<<"Done with Emergence Probability Plot"<<endl;
-//Double_t dmin = 1;
-//Double_t dmax = 6001.0; //thickness in km
-//Double_t xStepCoarse = 0.1;
-
-gStyle->SetOptStat(0);
-
-TH1D *hTau = new TH1D("hTau","",70,4,11);
-hTau->GetXaxis()->SetTitle("energy [GeV]");
-hTau->GetYaxis()->SetTitle("F_tau/F_nu");
-hTau->SetLineWidth(3);
-hTau->GetXaxis()->SetLabelSize(0.045);
-hTau->GetXaxis()->SetTitleOffset(1.5);
-hTau->GetYaxis()->SetTitleOffset(1.3);
-hTau->GetYaxis()->SetTitleSize(0.04);
-hTau->GetXaxis()->SetTitleSize(0.04);
-hTau->GetYaxis()->SetLabelSize(0.045);
-
-TAxis *axis = hTau->GetXaxis();
-int bins = axis->GetNbins();
-Axis_t from = axis->GetXmin();
-Axis_t to = axis->GetXmax();
-Axis_t width = (to - from) / bins;
-Axis_t *new_bins = new Axis_t[bins + 1];
-for (int i = 0; i <= bins; i++) {
-     new_bins[i] = TMath::Power(10, from + i * width);
-}
-axis->Set(bins, new_bins);
-
-//making Fta/Fnu plot from dutta paper
-for(int i=0;i<hTau->GetNbinsX();i++)
-{
-  Double_t El = hTau->GetBinLowEdge(i+1);
-  Double_t Eh = hTau->GetBinLowEdge(i+2);
-  Double_t Enu=hTau->GetBinCenter(i+1);
-
-  Double_t weight = log(Eh)-log(El) ;
-
-  Double_t Etau = hTau->GetBinCenter(1); 
-  int n = 0;
-  while(Etau<=Eh)
-  {
-   //  cout<<"Energy "<<E<<endl;
-   Double_t P = PEtau(100,Etau,Enu,hTau) ;
-   hTau->Fill(Etau,weight*P);
-   n++;
-   Etau=  hTau->GetBinCenter(n+1);
+  
+  //cout<<PDecayFluorescence(1e9,10,3,170)<<endl;;
+  
+  //fPE = new TF1("fPE",myPEfunction_trigwindow,0,40,2);
+  //fix the trigger time window time index
+  //fPE->FixParameter(2,1); // 0 = 15 ns, 1 = 30 ns, 2 = 45ns
+  fPE = new TF1("fPE",myPEfunction,0,40,2);
+  
+  //TLegend *leg = new TLegend(0.14,0.6,0.31,0.87);
+  grsCC = new TGraph(19, Esig, sigma);
+  grsNC = new TGraph(19, Esig, sigmaNC);
+  
+  hTriggeredAzimuthAngles = new TH1D("hTriggeredAzimuthAngles","",int(180/DeltaAngleAz),0,180);
+  hTriggeredAzimuthAngles->GetXaxis()->SetTitle("angle #alpha [degrees]");
+  hTriggeredAzimuthAngles->GetYaxis()->SetTitle("probability");
+  hTriggeredAzimuthAngles->SetLineWidth(2);
+  hTriggeredAzimuthAngles->SetLineColor(kBlue+3);
+  
+  //plot the probability that a tau emerges when a neutrino hits the Earth
+  PlotEmergenceProbability();
+  cout<<"Done with Emergence Probability Plot"<<endl;
+  //Double_t dmin = 1;
+  //Double_t dmax = 6001.0; //thickness in km
+  //Double_t xStepCoarse = 0.1;
+  
+  gStyle->SetOptStat(0);
+  
+  TH1D *hTau = new TH1D("hTau","",70,4,11);
+  hTau->GetXaxis()->SetTitle("energy [GeV]");
+  hTau->GetYaxis()->SetTitle("F_tau/F_nu");
+  hTau->SetLineWidth(3);
+  hTau->GetXaxis()->SetLabelSize(0.045);
+  hTau->GetXaxis()->SetTitleOffset(1.5);
+  hTau->GetYaxis()->SetTitleOffset(1.3);
+  hTau->GetYaxis()->SetTitleSize(0.04);
+  hTau->GetXaxis()->SetTitleSize(0.04);
+  hTau->GetYaxis()->SetLabelSize(0.045);
+  
+  TAxis *axis = hTau->GetXaxis();
+  int bins = axis->GetNbins();
+  Axis_t from = axis->GetXmin();
+  Axis_t to = axis->GetXmax();
+  Axis_t width = (to - from) / bins;
+  Axis_t *new_bins = new Axis_t[bins + 1];
+  for (int i = 0; i <= bins; i++) {
+    new_bins[i] = TMath::Power(10, from + i * width);
   }
-}
-
-//convert to different units
-for(int i=0;i<hTau->GetNbinsX();i++)
-{
-   //Double_t Enu = hTau->GetBinCenter(i+1);
-   Double_t El = hTau->GetBinLowEdge(i+1);
-   Double_t Eh = hTau->GetBinLowEdge(i+2);
-   hTau->SetBinContent(i+1,hTau->GetBinContent(i+1)/(log(Eh)-log(El)));
-   hTau->SetBinError(i+1,0);
-}
-
-//plot clone of hTau
-
-
-//produce plot with tau energy distribution for four different target
-//thicknesses
-
-TCanvas *cTauSpeMonoEn = new TCanvas("cTauSpeMonoEn","Energy Distribution of Taus produced by 10^9 GeV Nus",750,500);
-cTauSpeMonoEn->Draw();
-cTauSpeMonoEn->SetLogx();
-cTauSpeMonoEn->SetLogy();
-
-hTau->GetYaxis()->SetTitle("probability of #tau emergence");
-
-TLegend *legend = new TLegend(0.75,0.6,0.97,0.95);
-TString legstr;
-for(float i=0;i<4;i++)
-{
-GetTauDistribution(hTau,pow(10,i),pow(10,9.0),pow(10,9.1001));//9.0...9.1
-TH1D *h = (TH1D*)hTau->Clone("h");
-h->SetLineStyle(i+1);
-h->Draw("same");
-legstr.Form("%0.0f km",pow(10,i));
-legend->AddEntry(h,legstr.Data(),"l");
-}
-legend->Draw();
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//Sensitivity calculation starts here
-bFluorescence = kFALSE;
-
-CalculateAcceptanceVsImageLength(hTau);
-
-//CalculateAcceptanceVsUpperFoV(hTau);
-//
-//CalculateAcceptanceVsLowerFoV(hTau);
-
-//CalculateAcceptanceVsTelescopeHeight(hTau);
-
-//CalculateAcceptanceVsThreshold(hTau);
-//
-//CalculateAcceptanceVsEnergy(hTau);
-//
-//CalculateIntegralSensitivity(hTau);
-//CalculateDifferentialSensitivity(hTau);
-//
-
+  axis->Set(bins, new_bins);
+  
+  //making Fta/Fnu plot from dutta paper
+  for(int i=0;i<hTau->GetNbinsX();i++)
+    {
+      Double_t El = hTau->GetBinLowEdge(i+1);
+      Double_t Eh = hTau->GetBinLowEdge(i+2);
+      Double_t Enu=hTau->GetBinCenter(i+1);
+      
+      Double_t weight = log(Eh)-log(El) ;
+      
+      Double_t Etau = hTau->GetBinCenter(1); 
+      int n = 0;
+      while(Etau<=Eh)
+	{
+	  //  cout<<"Energy "<<E<<endl;
+	  Double_t P = PEtau(100,Etau,Enu,hTau) ;
+	  hTau->Fill(Etau,weight*P);
+	  n++;
+	  Etau=  hTau->GetBinCenter(n+1);
+	}
+    }
+  
+  //convert to different units
+  for(int i=0;i<hTau->GetNbinsX();i++)
+    {
+      //Double_t Enu = hTau->GetBinCenter(i+1);
+      Double_t El = hTau->GetBinLowEdge(i+1);
+      Double_t Eh = hTau->GetBinLowEdge(i+2);
+      hTau->SetBinContent(i+1,hTau->GetBinContent(i+1)/(log(Eh)-log(El)));
+      hTau->SetBinError(i+1,0);
+    }
+  
+  //plot clone of hTau
+  
+  
+  //produce plot with tau energy distribution for four different target
+  //thicknesses
+  
+  TCanvas *cTauSpeMonoEn = new TCanvas("cTauSpeMonoEn","Energy Distribution of Taus produced by 10^9 GeV Nus",750,500);
+  cTauSpeMonoEn->Draw();
+  cTauSpeMonoEn->SetLogx();
+  cTauSpeMonoEn->SetLogy();
+  
+  hTau->GetYaxis()->SetTitle("probability of #tau emergence");
+  
+  TLegend *legend = new TLegend(0.75,0.6,0.97,0.95);
+  TString legstr;
+  for(float i=0;i<4;i++)
+    {
+      GetTauDistribution(hTau,pow(10,i),pow(10,9.0),pow(10,9.1001));//9.0...9.1
+      TH1D *h = (TH1D*)hTau->Clone("h");
+      h->SetLineStyle(i+1);
+      h->Draw("same");
+      legstr.Form("%0.0f km",pow(10,i));
+      legend->AddEntry(h,legstr.Data(),"l");
+    }
+  legend->Draw();
+ 
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  
+  //Sensitivity calculation starts here
+  bFluorescence = kFALSE;
+  
+  CalculateAcceptanceVsImageLength(hTau);
+  
+  //CalculateAcceptanceVsUpperFoV(hTau);
+  //
+  //CalculateAcceptanceVsLowerFoV(hTau);
+  
+  //CalculateAcceptanceVsTelescopeHeight(hTau);
+  
+  //CalculateAcceptanceVsThreshold(hTau);
+  //
+  //CalculateAcceptanceVsEnergy(hTau);
+  //
+  //CalculateIntegralSensitivity(hTau);
+  //CalculateDifferentialSensitivity(hTau);
+  //
+ 
 /*
-cout<<"DEBUGGING"<<endl;
-               Double_t dEarth = DistanceThroughEarth(5,0.75);
-               //GetTauDistribution(hTau,dEarth,9.3,10.3);                
-               GetTauDistribution(hTau,dEarth,9.5,10.5);                
-               for(int i=0;i<hTau->GetNbinsX();i++)
-                  {
-                     cout<<hTau->GetBinCenter(i+1)  <<" taus cont: "<<hTau->GetBinContent(i+1)<<endl;
-                  }
-
+  cout<<"DEBUGGING"<<endl;
+  Double_t dEarth = DistanceThroughEarth(5,0.75);
+  //GetTauDistribution(hTau,dEarth,9.3,10.3);                
+  GetTauDistribution(hTau,dEarth,9.5,10.5);                
+  for(int i=0;i<hTau->GetNbinsX();i++)
+  {
+  cout<<hTau->GetBinCenter(i+1)  <<" taus cont: "<<hTau->GetBinContent(i+1)<<endl;
+  }
+  
 */
 /*
-yMin = 5;
-yMax = 5.1;
-yDelta = 5;
-MaxElevation = 30;
-DeltaAngle = 0.05;
-dMaxCherenkovAzimuthAngle = 30;
-dMinEnu = 5.5;
-dMaxEnu = 6.5;
-
-    Double_t dFoV = 3;  //test 0, 1, 2, 10
-    tanFoV = tan(dFoV/180.*pi);
-    //dFoVBelow = asin(REarth/(REarth+DetectorAltitude[iConfig]));
-    dFoVBelow =  2/180.*pi; 
-    iMirrorSize = 2;
-    dMinimumNumberPhotoelectrons = dThreshold[iMirrorSize]/dMirrorA[iMirrorSize]; 
-
-    dMinLength = 0.3; //mimnimum length a shower has to have in the camera, in degrees. This is a conservative estimate because it assumes that the shower starts at a distance l from the detector, which is not necessarily tru for showers with shallow elevation angles.
-TGraph *grTMP = new TGraph();
-CalculateAcceptance(dMinEnu,dMaxEnu,grTMP,hTau);
+  yMin = 5;
+  yMax = 5.1;
+  yDelta = 5;
+  MaxElevation = 30;
+  DeltaAngle = 0.05;
+  dMaxCherenkovAzimuthAngle = 30;
+  dMinEnu = 5.5;
+  dMaxEnu = 6.5;
+  
+  Double_t dFoV = 3;  //test 0, 1, 2, 10
+  tanFoV = tan(dFoV/180.*pi);
+  //dFoVBelow = asin(REarth/(REarth+DetectorAltitude[iConfig]));
+  dFoVBelow =  2/180.*pi; 
+  iMirrorSize = 2;
+  dMinimumNumberPhotoelectrons = dThreshold[iMirrorSize]/dMirrorA[iMirrorSize]; 
+  
+  dMinLength = 0.3; //mimnimum length a shower has to have in the camera, in degrees. This is a conservative estimate because it assumes that the shower starts at a distance l from the detector, which is not necessarily tru for showers with shallow elevation angles.
+  TGraph *grTMP = new TGraph();
+  CalculateAcceptance(dMinEnu,dMaxEnu,grTMP,hTau);
 */
-
+ 
 //loop over threshold energy//
 //
-
+ 
 //loop over nu energy bins weighting with power law with index g and fill spectrum with tau energies
 //Generate Tau spectrum for neutrinos in this bin emerging under a given angle
 //
 /*
-TCanvas *cSens = new TCanvas("cSens","Sensitivity",750,500);
-cSens->Draw();
-TH1D *hSens = new TH1D("hSens","",1000,0.9*dmin,dmax*1.1);
-hSens->Draw();
-hSens->SetMaximum(1e-3);
-hSens->SetMinimum(1e-10);
-hSens->GetXaxis()->SetTitle("Target thickness [km]");
-hSens->GetYaxis()->SetTitle("Sensitivity [GeV cm^{-2} s^{-1} sr^{-1}]");
-cSens->SetLogx();
-cSens->SetLogy();
-TMultiGraph *mGrSens = new TMultiGraph("mGrSens","MGrSens");
-
-
-cSens->cd();
-mGrSens->Draw("PL");
-leg->Draw();
-leg->Draw();
+  TCanvas *cSens = new TCanvas("cSens","Sensitivity",750,500);
+  cSens->Draw();
+  TH1D *hSens = new TH1D("hSens","",1000,0.9*dmin,dmax*1.1);
+  hSens->Draw();
+  hSens->SetMaximum(1e-3);
+  hSens->SetMinimum(1e-10);
+  hSens->GetXaxis()->SetTitle("Target thickness [km]");
+  hSens->GetYaxis()->SetTitle("Sensitivity [GeV cm^{-2} s^{-1} sr^{-1}]");
+  cSens->SetLogx();
+  cSens->SetLogy();
+  TMultiGraph *mGrSens = new TMultiGraph("mGrSens","MGrSens");
+  
+  
+  cSens->cd();
+  mGrSens->Draw("PL");
+  leg->Draw();
+  leg->Draw();
 */
-
-
+ 
+ 
 /*
- TTimer timer("gSystem->ProcessEvents();", 50, kFALSE);
-   timer.TurnOn();
-   Getline("Type <return> to go on: ");
-   timer.TurnOff();
+  TTimer timer("gSystem->ProcessEvents();", 50, kFALSE);
+  timer.TurnOn();
+  Getline("Type <return> to go on: ");
+  timer.TurnOff();
 */
-  cout<<"done"<<endl;
-  theApp->Run();
-
-return 0;
+ cout<<"done"<<endl;
+ theApp->Run();
+ 
+ return 0;
 }
