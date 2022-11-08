@@ -53,6 +53,10 @@ Double_t REarth = 6371; //km
 
 Int_t iConfig = 2;
 double DetectorAltitude[] = { 0, 1, 2, 3};
+
+// Timing information
+Int_t iTrigWin = 2;
+double TriggerWindow[] = {15.00, 30.00, 45.00}; // ns
  
 //obtained from 3e4 GeV gamma rays
 double lincorr[] = { 0.0509251, 0.0522854, 0.0595455, 0.0642221};
@@ -189,11 +193,14 @@ Double_t myPEfunction_trigwindow(Double_t *x, Double_t *par)
   Int_t ti = par[2];
   // x is azimuth angle in rad
   Double_t azi = x[0];
-
+  
+  //cout << par[0]<< " " << par[1]<< " " << par[2] << endl;
+  //cout << "ti" << ti << "TW: " << TriggerWindow[ti] << " Fit Parameters: " << parPEF2[ti][0] << endl;
+  
   if (azi > 0.69813170) // if > 40 degrees then return 0
     return 0; 
-
- 
+  
+  
   Double_t dTelAngle = atan(DetectorAltitude[iConfig]*1e-3/l);
   Double_t dAngle = sqrt(azi*azi + (elv-dTelAngle)*(elv-dTelAngle))*57.295780; //in deg
   //calculate how many PEs / per m2 per GeV
@@ -1129,137 +1136,144 @@ cout<<i+1<<"  "<<hTauSpec->GetBinCenter(i+1)  <<" taus cont: "<<hTauSpec->GetBin
 //returns the integral acceptance
 //and returns a graph that holds the acceptance for each step in distance in the
 //loop
-Double_t CalculateAcceptance(Double_t dMinEnu, Double_t dMaxEnu,TGraph *grDiffAcceptance,TH1D *hTau)
+Double_t CalculateAcceptance(Double_t dMinEnu, Double_t dMaxEnu,TGraph *grDiffAcceptance,TH1D *hTau, Int_t tIndex)
 {
-
-   dMinEnu = pow(10,dMinEnu);
-   dMaxEnu = pow(10,dMaxEnu);
-
-   //the hTau passed to the function is ignored. Create a new one below
-   //hTau = new TH1D("hTauNew","",dMaxEnu/(dMinEnu/10.),dMinEnu/10.,dMaxEnu);
-/*
-//make logarithmic axis
-TAxis *axis = hTauNew->GetXaxis();
-int bins = axis->GetNbins();
-Axis_t from = axis->GetXmin();
-Axis_t to = axis->GetXmax();
-Axis_t width = (to - from) / bins;
-Axis_t *new_bins = new Axis_t[bins + 1];
-for (int i = 0; i <= bins; i++) {
-     new_bins[i] = TMath::Power(10, from + i * width);
-}
-axis->Set(bins, new_bins);
-axis->Delete();
-*/
-    //area of cell
-    Double_t dConversion=yDelta*2*pi; //multiply area of cell taking into account that we have a 360 degree FoV
-    dConversion*=1e10; //from km2 to cm2
-    //solid angle
-    dConversion*=DeltaAngleAz/180.*pi*DeltaAngle/180.*pi; //multiply area of solidangle cell
-
-    //time Do that in the sensitivity calculation. Acceptance is calculated
-    //without the observing time
-    //dConversion*=3*365*24*3600*0.20; //exposure time 3 years in seconds with 20% duty cycle
-
-   
-    dConversion*=2; //because we only calculate for azimuth angles 0 to azimuth max. There are also negative azimuth values due to symmetry of the problem 
-
-
-    Double_t dIntegratedAcceptance=0;
-    Int_t p = 0;
-    Double_t y = yMin; //y distance from telescope where tau comes out of the ground;
-    while(y<yMax) //loop over distance to telescope
-     {
-       //cout<<"Distance from Detector: "<<y<<endl;
-       //calculate for given elevation the length of the trajectory through earth.
-       Double_t dAcceptance=0.0;
-
-       Double_t MaxAzimuth = dMaxCherenkovAzimuthAngle;
-       if( bFluorescence || (bCombined && y<dMaxFluorescenceDistance) ) // so we can make full use of fluoresence events
-         MaxAzimuth = 180;
-
-       Double_t elevation=DeltaAngle*0.5;    
-       while(elevation<MaxElevation) //loop over elevation
-         {
-            Double_t dWeightForTriggeredAzimuth = sin(elevation/180.*pi)*y;
-            Double_t azimuth = DeltaAngleAz*0.5;
-            while(azimuth<MaxAzimuth) // loop over azimuth
-              {
-
-                 if(azimuth>MaxAzimuth && y>dMaxFluorescenceDistance)
-                  cout<<" Azimuth:" <<azimuth<<" should not be here "<<endl;
-
-                 Double_t dEarth = DistanceThroughEarth(y,elevation,azimuth);
-                 //cout<<"   length of trajectory in Earth: "<<dEarth<<" km"<<endl;
-
-                 //cout<<dEarth<<"  "<<dMinEnu<<"  "<<dMaxEnu<<endl; 
-                 GetTauDistribution(hTau,dEarth,dMinEnu,dMaxEnu);                
-                 //cout<<"done GetTau"<<endl;
-
-               Double_t dDeltaAcceptance=0;
-
-               //Calculate probability that taus with E convert before they are 150 km away from detector when they make it out of the earth. 
-               //150km is for an angle of 5 degrees assuming 10 degree opening angle. If the angle is free the distance of closest approach depends on
-               // where the tau comes out of the earth and under what angle (vertical and horizontal. 
-               //That is probably dependend on the initial nu energy
-               Double_t dP = 0;
-                //     if(elevation>0.5 && elevation<1 && azimuth>9 && azimuth<9.2)
-               for(int i=0;i<hTau->GetNbinsX();i++)
-                  {
-//cout<<dMinEnu<<"  "<<dMaxEnu<<endl;
-//cout<<"taus cont: "<<hTau->GetBinContent(i+1)<<endl;
-                     if(hTau->GetBinContent(i+1)>0)
-                      {
-                        Double_t dPFluorescence = 0.0;
-                        Double_t dPCherenkov = 0.0;
-                         //cout<<bFluorescence<<" "<<bCombined<<"  "<<y<<"<"<<dMaxFluorescenceDistance<<endl;
-                        if( bFluorescence || (bCombined && y<dMaxFluorescenceDistance) )
-                           dPFluorescence = PDecayFluorescence(hTau->GetBinCenter(i+1),y,elevation,azimuth);
-                        if( (!bFluorescence || bCombined) && azimuth<dMaxCherenkovAzimuthAngle  )
-                            dPCherenkov = PDecay(hTau->GetBinCenter(i+1),y,elevation,azimuth);
-
-                        if(bCombined)
-                         dP = dPFluorescence > dPCherenkov ? dPFluorescence : dPCherenkov;
-                        else if(bFluorescence)
-                          dP = dPFluorescence;
-                        else
-                          dP = dPCherenkov;
-                        dDeltaAcceptance+=hTau->GetBinContent(i+1)*dP;
-                        //dDeltaAcceptance+=hTau->GetBinContent(i+1); //use above
-                        if(!bMonoNu)
-                          hTriggeredAzimuthAngles->Fill(azimuth,hTau->GetBinContent(i+1)*dP*dWeightForTriggeredAzimuth);
-                       }
-                     //if(hTau->GetBinContent(i+1)*dP>0 )
-                     //cout<<hTau->GetBinCenter(i+1)<<"  "<<hTau->GetBinContent(i+1)<<" y:  "<<y<<"  el: "<<elevation<<" az: "<<azimuth<<" dp: "<<dP<<" dDeltaAccept: "<<dDeltaAcceptance<<" prod: "<<hTau->GetBinContent(i+1)*dP<<endl;
-                  }
-               if(dDeltaAcceptance<1e-10 && y>50) //won't get any more acceptance. The >60 is to make sure we do not miss fluorescence events whic can be seen from the back
-                   break;
-
-               dAcceptance+=dDeltaAcceptance*sin(elevation/180.*pi); //projection of area cell to trajectory
-               //   cout<<"distance "<<y<<" prob"<<dDeltaAcceptance<<" elevation  "<<elevation<<endl;
-               azimuth+=DeltaAngleAz;
-
-               //Add absorption in the atmosphere between shower and observer
-               //Go over target area and calculate acceptance angle for each dA. Integrate over energy spectrum of taus coming out of the earth at that point. multiplied with detection efficiency(absorption).
-             }//finished looping over all azimuth angles
-               elevation+=DeltaAngle;    
-             //cout<<azimuth<<"  "<<dAcceptance<<endl;
-           //multiply with dOmega  DeltaAngle*DeltaAngle
+  if (tIndex==3){
+    fPE = new TF1("fPE",myPEfunction,0,40,2);
+  }else{
+    cout<<"/////" << tIndex <<endl;
+    fPE = new TF1("fPE",myPEfunction_trigwindow,0,40,3);
+    fPE->FixParameter(2,tIndex);
+  }
+  
+  dMinEnu = pow(10,dMinEnu);
+  dMaxEnu = pow(10,dMaxEnu);
+  
+  //the hTau passed to the function is ignored. Create a new one below
+  //hTau = new TH1D("hTauNew","",dMaxEnu/(dMinEnu/10.),dMinEnu/10.,dMaxEnu);
+  /*
+  //make logarithmic axis
+  TAxis *axis = hTauNew->GetXaxis();
+  int bins = axis->GetNbins();
+  Axis_t from = axis->GetXmin();
+  Axis_t to = axis->GetXmax();
+  Axis_t width = (to - from) / bins;
+  Axis_t *new_bins = new Axis_t[bins + 1];
+  for (int i = 0; i <= bins; i++) {
+  new_bins[i] = TMath::Power(10, from + i * width);
+  }
+  axis->Set(bins, new_bins);
+  axis->Delete();
+  */
+  //area of cell
+  Double_t dConversion=yDelta*2*pi; //multiply area of cell taking into account that we have a 360 degree FoV
+  dConversion*=1e10; //from km2 to cm2
+  //solid angle
+  dConversion*=DeltaAngleAz/180.*pi*DeltaAngle/180.*pi; //multiply area of solidangle cell
+  
+  //time Do that in the sensitivity calculation. Acceptance is calculated
+  //without the observing time
+  //dConversion*=3*365*24*3600*0.20; //exposure time 3 years in seconds with 20% duty cycle
+  
+  
+  dConversion*=2; //because we only calculate for azimuth angles 0 to azimuth max. There are also negative azimuth values due to symmetry of the problem 
+  
+  
+  Double_t dIntegratedAcceptance=0;
+  Int_t p = 0;
+  Double_t y = yMin; //y distance from telescope where tau comes out of the ground;
+  while(y<yMax) //loop over distance to telescope
+    {
+      //cout<<"Distance from Detector: "<<y<<endl;
+      //calculate for given elevation the length of the trajectory through earth.
+      Double_t dAcceptance=0.0;
+      
+      Double_t MaxAzimuth = dMaxCherenkovAzimuthAngle;
+      if( bFluorescence || (bCombined && y<dMaxFluorescenceDistance) ) // so we can make full use of fluoresence events
+	MaxAzimuth = 180;
+      
+      Double_t elevation=DeltaAngle*0.5;    
+      while(elevation<MaxElevation) //loop over elevation
+	{
+	  Double_t dWeightForTriggeredAzimuth = sin(elevation/180.*pi)*y;
+	  Double_t azimuth = DeltaAngleAz*0.5;
+	  while(azimuth<MaxAzimuth) // loop over azimuth
+	    {
+	      
+	      if(azimuth>MaxAzimuth && y>dMaxFluorescenceDistance)
+		cout<<" Azimuth:" <<azimuth<<" should not be here "<<endl;
+	      
+	      Double_t dEarth = DistanceThroughEarth(y,elevation,azimuth);
+	      //cout<<"   length of trajectory in Earth: "<<dEarth<<" km"<<endl;
+	      
+	      //cout<<dEarth<<"  "<<dMinEnu<<"  "<<dMaxEnu<<endl; 
+	      GetTauDistribution(hTau,dEarth,dMinEnu,dMaxEnu);                
+	      //cout<<"done GetTau"<<endl;
+	      
+	      Double_t dDeltaAcceptance=0;
+	      
+	      //Calculate probability that taus with E convert before they are 150 km away from detector when they make it out of the earth. 
+	      //150km is for an angle of 5 degrees assuming 10 degree opening angle. If the angle is free the distance of closest approach depends on
+	      // where the tau comes out of the earth and under what angle (vertical and horizontal. 
+	      //That is probably dependend on the initial nu energy
+	      Double_t dP = 0;
+	      //     if(elevation>0.5 && elevation<1 && azimuth>9 && azimuth<9.2)
+	      for(int i=0;i<hTau->GetNbinsX();i++)
+		{
+		  //cout<<dMinEnu<<"  "<<dMaxEnu<<endl;
+		  //cout<<"taus cont: "<<hTau->GetBinContent(i+1)<<endl;
+		  if(hTau->GetBinContent(i+1)>0)
+		    {
+		      Double_t dPFluorescence = 0.0;
+		      Double_t dPCherenkov = 0.0;
+		      //cout<<bFluorescence<<" "<<bCombined<<"  "<<y<<"<"<<dMaxFluorescenceDistance<<endl;
+		      if( bFluorescence || (bCombined && y<dMaxFluorescenceDistance) )
+			dPFluorescence = PDecayFluorescence(hTau->GetBinCenter(i+1),y,elevation,azimuth);
+		      if( (!bFluorescence || bCombined) && azimuth<dMaxCherenkovAzimuthAngle  )
+			dPCherenkov = PDecay(hTau->GetBinCenter(i+1),y,elevation,azimuth);
+		      
+		      if(bCombined)
+			dP = dPFluorescence > dPCherenkov ? dPFluorescence : dPCherenkov;
+		      else if(bFluorescence)
+			dP = dPFluorescence;
+		      else
+			dP = dPCherenkov;
+		      dDeltaAcceptance+=hTau->GetBinContent(i+1)*dP;
+		      //dDeltaAcceptance+=hTau->GetBinContent(i+1); //use above
+		      if(!bMonoNu)
+			hTriggeredAzimuthAngles->Fill(azimuth,hTau->GetBinContent(i+1)*dP*dWeightForTriggeredAzimuth);
+		    }
+		  //if(hTau->GetBinContent(i+1)*dP>0 )
+		  //cout<<hTau->GetBinCenter(i+1)<<"  "<<hTau->GetBinContent(i+1)<<" y:  "<<y<<"  el: "<<elevation<<" az: "<<azimuth<<" dp: "<<dP<<" dDeltaAccept: "<<dDeltaAcceptance<<" prod: "<<hTau->GetBinContent(i+1)*dP<<endl;
+		}
+	      if(dDeltaAcceptance<1e-10 && y>50) //won't get any more acceptance. The >60 is to make sure we do not miss fluorescence events whic can be seen from the back
+		break;
+	      
+	      dAcceptance+=dDeltaAcceptance*sin(elevation/180.*pi); //projection of area cell to trajectory
+	      //   cout<<"distance "<<y<<" prob"<<dDeltaAcceptance<<" elevation  "<<elevation<<endl;
+	      azimuth+=DeltaAngleAz;
+	      
+	      //Add absorption in the atmosphere between shower and observer
+	      //Go over target area and calculate acceptance angle for each dA. Integrate over energy spectrum of taus coming out of the earth at that point. multiplied with detection efficiency(absorption).
+	    }//finished looping over all azimuth angles
+	  elevation+=DeltaAngle;    
+	  //cout<<azimuth<<"  "<<dAcceptance<<endl;
+	  //multiply with dOmega  DeltaAngle*DeltaAngle
         }//finished looping over all elevation angles
-    //dAcceptance*=yDelta*DeltaAngle/180*pi*y; //multiply area of cell
-    //dAcceptance*=DeltaAngle/180*pi*DeltaAngle/180*pi; //multiply area of solidangle cell
-    dAcceptance*=y; //multiply with area of cell (note that the yDelta*DeltaAngle/180*pi is included in dConversion
-    dIntegratedAcceptance+=dAcceptance;
-    
-    grDiffAcceptance->SetPoint(p,y,dAcceptance*dConversion); 
-    p++;
-    cout<<"distance: "<<y<<" differ. acceptance "<<(dAcceptance*dConversion)<<" integr. acceptance.: "<<(dIntegratedAcceptance*dConversion)<<endl; 
-    cout<<dAcceptance<<"  "<<dConversion<<endl;
-    y+=yDelta;
-    if(dAcceptance<1e-10 && y>50) //no sense to increase in distance if we can't see any showers now
-       break;
-  }//end looping over distances
-return (dIntegratedAcceptance*dConversion);
+      //dAcceptance*=yDelta*DeltaAngle/180*pi*y; //multiply area of cell
+      //dAcceptance*=DeltaAngle/180*pi*DeltaAngle/180*pi; //multiply area of solidangle cell
+      dAcceptance*=y; //multiply with area of cell (note that the yDelta*DeltaAngle/180*pi is included in dConversion
+      dIntegratedAcceptance+=dAcceptance;
+      
+      grDiffAcceptance->SetPoint(p,y,dAcceptance*dConversion); 
+      p++;
+      cout<<"distance: "<<y<<" differ. acceptance "<<(dAcceptance*dConversion)<<" integr. acceptance.: "<<(dIntegratedAcceptance*dConversion)<<endl; 
+      cout<<dAcceptance<<"  "<<dConversion<<endl;
+      y+=yDelta;
+      if(dAcceptance<1e-10 && y>50) //no sense to increase in distance if we can't see any showers now
+	break;
+    }//end looping over distances
+  return (dIntegratedAcceptance*dConversion);
 }
 
 void CalculateAcceptanceVsLowerFoV(TH1D *hTau)
@@ -1332,7 +1346,7 @@ void CalculateAcceptanceVsLowerFoV(TH1D *hTau)
        grDiffAcceptance->SetLineColor(iColors[f]);
        mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
      //  cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
        grAcceptvsFoV->SetPoint(f,f*2+3,dAcceptance);
      }//looping over different FoV
@@ -1434,7 +1448,7 @@ void CalculateAcceptanceVsUpperFoV(TH1D *hTau)
        grDiffAcceptance->SetLineColor(iColors[f]);
        mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
        cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
        grAcceptvsFoV->SetPoint(f,f*2+3,dAcceptance);
      }//looping over different FoV
@@ -1539,7 +1553,7 @@ void CalculateAcceptanceVsEnergy(TH1D *hTau)
        grDiffAcceptance->SetLineWidth(2);
        mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
        cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
        grAcceptvsImageSize->SetPoint(f,dMinLength,dAcceptance);
       } //looping over different energies
@@ -1635,7 +1649,7 @@ void CalculateAcceptanceVsImageLength(TH1D *hTau)
        grDiffAcceptance->SetLineWidth(2);
        mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
        cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
        grAcceptvsImageSize->SetPoint(f,dMinLength,dAcceptance);
       } //looping over different minimum image size
@@ -1730,7 +1744,7 @@ void CalculateAcceptanceVsTelescopeHeight(TH1D *hTau)
       grDiffAcceptance->SetLineColor(iColors[f]);
       mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-      Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+      Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
       cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
       grAcceptvsHeight->SetPoint(f,DetectorAltitude[f],dAcceptance);
      }//looping over different FoV
@@ -1760,6 +1774,105 @@ void CalculateAcceptanceVsTelescopeHeight(TH1D *hTau)
   legAcceptance->Draw();
 
 
+}
+
+void CalculateAcceptanceVsTriggerWindow(TH1D *hTau)
+{
+
+  bCombined = kFALSE;
+
+  MaxElevation = 10; //elevation angle (determines path through Earth; 
+  DeltaAngle = 0.05; //steps in azimuth and elevation 
+  yMin = 0;
+  yDelta = 5; 
+
+  tanFoV = tan(10./180.*pi);
+  dFoVBelow = asin(REarth/(REarth+DetectorAltitude[3]));
+
+  iMirrorSize = 2;
+  dMinimumNumberPhotoelectrons = dThreshold[iMirrorSize]/dMirrorA[iMirrorSize]; 
+
+  dMinLength = 0.3; //mimnimum length a shower has to have in the camera, in degrees. This is a conservative estimate because it assumes that the shower starts at a distance l from the detector, which is not necessarily tru for showers with shallow elevation angles.
+
+  Double_t dPreFactor = pow(10,(dMaxEnu+dMinEnu)) / (pow(10,dMaxEnu)-pow(10,dMinEnu));
+  dPreFactor *= 3;//three neutrino flavours
+
+
+  TMultiGraph *mgDiffAcceptance = new TMultiGraph();
+  TMultiGraph *mgAcceptance = new TMultiGraph();
+  TLegend *legAcceptance = new TLegend(0.6,0.54,0.91,0.91,"trigger window");
+  legAcceptance->SetTextSize(0.05);
+
+  for(int b = 0;b<2;b++)
+  {
+    bFluorescence=b;
+    TGraph *grAcceptvsTrigWindow = new TGraph();
+    grAcceptvsTrigWindow->SetLineWidth(3);
+    grAcceptvsTrigWindow->SetLineColor(kBlue+3);
+    mgAcceptance->Add(grAcceptvsTrigWindow);
+
+     if(bFluorescence)
+      {
+        
+        yMax = 100;
+        grAcceptvsTrigWindow->SetLineStyle(9);
+      }
+    else
+      {
+         yMax = 400;
+       }
+
+    for(unsigned int f = 0;f<4;f++)
+     {
+      iTrigWin = f; //telescope trigger window
+      TGraph *grDiffAcceptance = new TGraph();
+         if(bFluorescence)
+          {
+            grDiffAcceptance->SetLineStyle(2);
+            TString title;
+	    if (f == 3 ){
+	      title.Form("all time");
+	    }else{
+	      title.Form("%f",TriggerWindow[f]);
+	    }
+            legAcceptance->AddEntry(grDiffAcceptance,title.Data(),"p"); 
+          }
+
+      grDiffAcceptance->SetMarkerStyle(marker[f]);
+      grDiffAcceptance->SetMarkerSize(markerSize[f]);
+      grDiffAcceptance->SetMarkerColor(iColors[f]);
+      grDiffAcceptance->SetLineColor(iColors[f]);
+      mgDiffAcceptance->Add(grDiffAcceptance,"lp");
+    
+      Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,f);
+      cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
+      if (f < 3)
+	grAcceptvsTrigWindow->SetPoint(f,TriggerWindow[f],dAcceptance);
+     }//looping over different trigger window widths
+   } //looping over Fluo and Cherenkov
+  //Done with calculating the sensitivity
+
+  TCanvas *cAcceptvsTrigWindow = new TCanvas("cAcceptvsTrigWindow","Acceptance vs. Trigger Window",750,500);
+  cAcceptvsTrigWindow->Draw();
+  mgAcceptance->Draw("alp");
+  mgAcceptance->GetXaxis()->SetTitle("trigger window [ns]");
+  mgAcceptance->GetYaxis()->SetTitle("acceptance [cm^{2} sr]");
+  mgAcceptance->GetYaxis()->SetTitleSize(0.04);
+  mgAcceptance->GetYaxis()->SetLabelSize(0.04);
+  mgAcceptance->GetXaxis()->SetTitleSize(0.04);
+  mgAcceptance->GetXaxis()->SetLabelSize(0.04);
+  
+
+  TCanvas *cDiffAcceptDistance = new TCanvas("cDiffAcceptDistance","Acceptance vs. Distance",750,500);
+  cDiffAcceptDistance->Draw();
+  mgDiffAcceptance->Draw("a");
+  mgDiffAcceptance->GetXaxis()->SetTitle("distance of tau emergence from telescope [km]");
+  mgDiffAcceptance->GetYaxis()->SetTitle("radial acceptance [cm^{2} sr]");
+  mgDiffAcceptance->GetYaxis()->SetTitleSize(0.04);
+  mgDiffAcceptance->GetYaxis()->SetLabelSize(0.04);
+  mgDiffAcceptance->GetXaxis()->SetTitleSize(0.04);
+  mgDiffAcceptance->GetXaxis()->SetLabelSize(0.04);
+  legAcceptance->Draw();
 }
 
 void CalculateAcceptanceVsThreshold(TH1D *hTau)
@@ -1830,7 +1943,7 @@ void CalculateAcceptanceVsThreshold(TH1D *hTau)
     grDiffAcceptance->SetLineColor(iColors[f]);
     mgDiffAcceptance->Add(grDiffAcceptance,"lp");
     
-    Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau);
+    Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,iTrigWin);
     cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
     grAcceptvsMirror->SetPoint(f,dMirrorA[iMirrorSize],dAcceptance);
    }//looping over different FoV
@@ -1912,7 +2025,7 @@ void CalculateIntegralSensitivity(TH1D *hTau)
     Double_t dIntegratedAcceptance=0;
     while(dLogE>logEmin)
        {
-          Double_t dAcceptance = CalculateAcceptance(dLogE,dLogE+dLogEnergyStep,grDiffAcceptance,hTau);
+	 Double_t dAcceptance = CalculateAcceptance(dLogE,dLogE+dLogEnergyStep,grDiffAcceptance,hTau,iTrigWin);
           Double_t dEIndexed = pow(10,-dLogE*nuIndex);
           dIntegratedAcceptance+=dAcceptance
              *dEIndexed*(pow(10,dLogE+dLogEnergyStep)-pow(10,dLogE));
@@ -2006,16 +2119,14 @@ void CalculateDifferentialSensitivity(TH1D *hTau)
     TCanvas *cTriggeredAzimuthAngles = new TCanvas("cTriggeredAzimuthAngles","Triggered Azimuth Angles",750,500);
     hTriggeredAzimuthAngles->Draw("HIST");
 
-  
-
 
     //Move in steps from lowest to highes energy
     Double_t dLogE = logEmin;
     Int_t n=0;
     while(dLogE<=logEmax)
        {
-          bMonoNu = kFALSE; //calculate the acceptance averaged over Enu bin
-          Double_t dAcceptance = CalculateAcceptance(dLogE-dHalfEnergyBinWidth,dLogE+dHalfEnergyBinWidth,grDiffAcceptance,hTau);
+          bMonoNu = kFALSE; //Calculate the acceptance averaged over Enu bin
+          Double_t dAcceptance = CalculateAcceptance(dLogE-dHalfEnergyBinWidth,dLogE+dHalfEnergyBinWidth,grDiffAcceptance,hTau,iTrigWin);
 
           if(dAcceptance>1)
            {
@@ -2029,7 +2140,7 @@ void CalculateDifferentialSensitivity(TH1D *hTau)
 
               //Calculate the Sensitivity as done by the Nu Community
               bMonoNu = kTRUE; //calculate the acceptance at Enu bin center
-              dAcceptance = CalculateAcceptance(dLogE-dHalfEnergyBinWidth,dLogE+dHalfEnergyBinWidth,grDiffAcceptance,hTau);
+              dAcceptance = CalculateAcceptance(dLogE-dHalfEnergyBinWidth,dLogE+dHalfEnergyBinWidth,grDiffAcceptance,hTau,iTrigWin);
               grAcceptanceMonoEnergy->SetPoint(n,pow(10,dLogE),dAcceptance);
               bMonoNu = kFALSE;
               dnuFnu = 3 * 2.44 / dAcceptance / dExposure / log(10) / (2*dHalfEnergyBinWidth) * pow(10,dLogE); //2.44 is from Feldman Cousin 90% confidence upper limit
@@ -2128,8 +2239,8 @@ int main (int argc, char **argv) {
   
   //fPE = new TF1("fPE",myPEfunction_trigwindow,0,40,2);
   //fix the trigger time window time index
-  //fPE->FixParameter(2,1); // 0 = 15 ns, 1 = 30 ns, 2 = 45ns
-  fPE = new TF1("fPE",myPEfunction,0,40,2);
+  //fPE->FixParameter(2,0); // 0 = 15 ns, 1 = 30 ns, 2 = 45ns
+  //fPE = new TF1("fPE",myPEfunction,0,40,2);
   
   //TLegend *leg = new TLegend(0.14,0.6,0.31,0.87);
   grsCC = new TGraph(19, Esig, sigma);
@@ -2234,14 +2345,16 @@ int main (int argc, char **argv) {
   //Sensitivity calculation starts here
   bFluorescence = kFALSE;
   
-  CalculateAcceptanceVsImageLength(hTau);
+  //CalculateAcceptanceVsImageLength(hTau);
   
   //CalculateAcceptanceVsUpperFoV(hTau);
   //
   //CalculateAcceptanceVsLowerFoV(hTau);
   
   //CalculateAcceptanceVsTelescopeHeight(hTau);
-  
+  //
+  CalculateAcceptanceVsTriggerWindow(hTau);
+  //
   //CalculateAcceptanceVsThreshold(hTau);
   //
   //CalculateAcceptanceVsEnergy(hTau);
