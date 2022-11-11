@@ -56,7 +56,7 @@ double DetectorAltitude[] = { 0, 1, 2, 3};
 
 // Timing information
 Int_t iTrigWin = 2;
-double TriggerWindow[] = {15.00, 30.00, 45.00, 60.00, 75.00}; // ns
+double TriggerWindow[] = {30.00, 60.00, 150.00, 300.00, 1500.00}; // ns
  
 //obtained from 3e4 GeV gamma rays
 double lincorr[] = { 0.0509251, 0.0522854, 0.0595455, 0.0642221};
@@ -79,22 +79,22 @@ double parPEF[] = { 0.00038827, 0.555588, 4.66631e-05, 1.90266, 0.0426453};
 */
 
 // Parameterization of PE distribution with timing at 40km,0 ele,and 2km altitude
-//obtained from 1e6 GeV gamma rays with various ns trigger window (15,30,45,60,75)
+//obtained from 1e6 GeV gamma rays with various ns trigger window (30,60,150,300,1500)
 double DetectorAltitude2[] = { 2, 2, 2, 2, 2};
-double lincorr2[] = { 0.04, 0.04, 0.04, 0.04, 0.0400001};
-double scalefirst2[] = { 1, 1, 1, 1, 1};
-double eleScaling2[] = { 0.00499707, 0.00501046, 0.0049938, 0.00499608, 0.00500326};
-double absorptionlength2[] = { 20, 20, 20, 20, 20};
-double parPEF2[5][5] = {{ 6.77183e-05, 0.599578, 0.000109705, 1.04491, 0.0346329}, { 2.48094e-09, 0.971087, 0.000211414, 1.04562, 0.0346362}, { 4.93947e-09, 0.384049, 0.000275539, 1.07095, 0.0344304}, { 2.52288e-10, 0.379361, 0.000306272, 1.10666, 0.0341286}, { 2.03024e-09, 0.346843, 0.000314862, 1.14685, 0.0337836}};
+double lincorr2[] = { 0.04,  0.04, 0.04, 0.0400153, 0.217309};
+double scalefirst2[] = { 1, 1, 1, 1.28155, 1.26299};
+double eleScaling2[] = { 0.00501046, 0.00499608, 0.00500683, 0.0230373, 0.0233402};
+double absorptionlength2[] = { 20, 20, 20, 19.9998, 19.8361};
+double parPEF2[5][5] = {{ 2.48094e-09, 0.971087, 0.000211414, 1.04562, 0.0346362}, { 2.52288e-10, 0.379361, 0.000306272, 1.10666, 0.0341286}, { 1.95971e-08, 0.373425, 0.000276322, 1.33355, 0.0321227}, { 4.90836e-07, 0.22572, 0.000208922, 1.5886, 0.0298558}, { 5.64579e-08, 0.391996, 0.000111541, 2.13944, 0.0294045}};
 
 // Parameterization of PE distribution with timing at 80km,0 ele,and 2km altitude
-//obtained from 1e6 GeV gamma rays with various trigger windows (15,30,45,60,75)
+//obtained from 1e6 GeV gamma rays with various trigger windows (30,60,150,300,1500)
 double DetectorAltitude3[] = { 2, 2, 2, 2, 2};
-double lincorr3[] = { 0.0792027, 0.0786967, 0.0782509, 0.0779326, 0.0777705};
+double lincorr3[] = { 0.0786967, 0.0779326, 0.0770613, 0.0761429, 0.0736504};
 double scalefirst3[] = { 1, 1, 1, 1, 1};
-double eleScaling3[] = { 0.00169174, 0.00170477, 0.00172341, 0.00173431, 0.0017268};
+double eleScaling3[] = { 0.00170477, 0.00173431, 0.00175404, 0.00178948, 0.00186624};
 double absorptionlength3[] = { 20, 20, 20, 20, 20};
-double parPEF3[5][5] = {{ 4.8878e-05, 0.765578, 7.53198e-06, 1.22237, 0.0324224},{ 3.41281e-05, 0.911229, 1.30399e-05, 1.24591, 0.032254}, { 1.84094e-05, 1, 2.07172e-05, 1.23037, 0.0323958}, { 1.0245e-09, 0.321118, 3.32187e-05, 1.19095, 0.0326761}, { 2.21387e-05, 0.138689, 3.20128e-05, 1.24981, 0.0321155}};
+double parPEF3[5][5] = {{ 3.41281e-05, 0.911229, 1.30399e-05, 1.24591, 0.032254}, { 1.0245e-09, 0.321118, 3.32187e-05, 1.19095, 0.0326761}, { 2.97373e-13, 0.472895, 2.50814e-05, 1.48642, 0.0297992}, { 1.34544e-08, 0.519933, 1.77321e-05, 1.79327, 0.0268114}, { 2.37947e-05, 0.9659, 6.80081e-06, 2.57612, 0.0237208}};
 
 ///////////////////////
 
@@ -1141,7 +1141,7 @@ Double_t CalculateAcceptance(Double_t dMinEnu, Double_t dMaxEnu,TGraph *grDiffAc
   if (tIndex==5){
     fPE = new TF1("fPE",myPEfunction,0,40,2);
   }else{
-    cout<<"/////" << tIndex <<endl;
+    cout<<"///// Time Window: " << TriggerWindow[tIndex] <<endl;
     fPE = new TF1("fPE",myPEfunction_trigwindow,0,40,3);
     fPE->FixParameter(2,tIndex);
   }
@@ -1846,7 +1846,7 @@ void CalculateAcceptanceVsTriggerWindow(TH1D *hTau)
     
       Double_t dAcceptance = CalculateAcceptance(dMinEnu,dMaxEnu,grDiffAcceptance,hTau,f);
       cout<<"Sensitivity "<<dPreFactor/dAcceptance<<endl;
-      if (f < 3)
+      if (f < 5)
 	grAcceptvsTrigWindow->SetPoint(f,TriggerWindow[f],dAcceptance);
      }//looping over different trigger window widths
    } //looping over Fluo and Cherenkov
