@@ -59,8 +59,10 @@ Double_t REarth = 6371; //km
 Int_t iConfig = 2;
 double DetectorAltitude[] = { 0, 1, 2, 3};
 
+Int_t NumSites = 3; //number of trinity sites
+
 // Trigger Timing information
-Int_t iTrigWin = 5;
+Int_t iTrigWin = 4; // index 5 means all PEs are counted regardless of time
 double TriggerWindow[] = {30.00, 60.00, 150.00, 300.00, 1500.00}; // ns
  
 //obtained from 3e4 GeV gamma rays
@@ -1147,6 +1149,7 @@ cout<<i+1<<"  "<<hTauSpec->GetBinCenter(i+1)  <<" taus cont: "<<hTauSpec->GetBin
 Double_t CalculateAcceptance(Double_t dMinEnu, Double_t dMaxEnu,TGraph *grDiffAcceptance,TH1D *hTau, Int_t tIndex)
 {
   if (tIndex==5){
+    cout<<"///// Time Window: All time" <<endl;
     fPE = new TF1("fPE",myPEfunction,0,40,2);
   }else{
     cout<<"///// Time Window: " << TriggerWindow[tIndex] <<endl;
@@ -1186,6 +1189,7 @@ Double_t CalculateAcceptance(Double_t dMinEnu, Double_t dMaxEnu,TGraph *grDiffAc
   
   dConversion*=2; //because we only calculate for azimuth angles 0 to azimuth max. There are also negative azimuth values due to symmetry of the problem 
   
+  dConversion*=NumSites; // multiply by the number of sites
   
   Double_t dIntegratedAcceptance=0;
   Int_t p = 0;
@@ -2101,8 +2105,6 @@ void CalculateDifferentialSensitivity(TH1D *hTau)
     grSensitivityNuCommunity->SetLineWidth(3);
     grSensitivityNuCommunity->SetLineColor(kRed+3);
 
-
-
     TCanvas *cDiffSensitivity = new TCanvas("cDiffSensitivity","Differential Sensitivity",750,500);
     cDiffSensitivity->Draw();
     cDiffSensitivity->SetLogy();
@@ -2123,7 +2125,6 @@ void CalculateDifferentialSensitivity(TH1D *hTau)
   
     TCanvas *cTriggeredAzimuthAngles = new TCanvas("cTriggeredAzimuthAngles","Triggered Azimuth Angles",750,500);
     hTriggeredAzimuthAngles->Draw("HIST");
-
 
     //Move in steps from lowest to highes energy
     Double_t dLogE = logEmin;
@@ -3608,12 +3609,12 @@ int main (int argc, char **argv) {
   //CalculateAcceptanceVsEnergy(hTau);
   //
   //CalculateIntegralSensitivity(hTau);
-  CalculateDifferentialSensitivity(hTau);
+  //CalculateDifferentialSensitivity(hTau);
   //
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Skyplots start here
   //
-  //PlotAcceptanceSkymaps(hTau);
+  PlotAcceptanceSkymaps(hTau);
  
 /*
   cout<<"DEBUGGING"<<endl;
