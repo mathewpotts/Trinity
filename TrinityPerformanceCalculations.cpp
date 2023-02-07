@@ -854,8 +854,8 @@ Double_t PDecay(Double_t Etau, Double_t y, Double_t elevation, Double_t azimuth,
         if (dem-dd-dInFoV < 0 ) //if we are below the plane
           az = abs(azimuth);
      }
-   else
-     cout<<"in PDecay, azimuth is zero or g is smaller zero"<<endl;
+   //else
+   //  cout<<"in PDecay, azimuth is zero or g is smaller zero"<<endl;
    //get PE for new azimuth
    //double az = asin(d/dDistanceToWhereTauStarts); //azimuth for that distance
    if(fPE->Eval(az)*Etau*0.5<dMinimumNumberPhotoelectrons)
@@ -971,22 +971,25 @@ Double_t PDecay(Double_t Etau, Double_t y, Double_t elevation, Double_t azimuth,
     Double_t hDistInFOV = 0;
     Double_t eta0 = pi - (halfHFOV-abs(dAzimuth)) - abs(azimuth);
     Double_t eta1 = pi - (halfHFOV+abs(dAzimuth)) - abs(azimuth);
-    if (eta0 <= 0 || eta1 <= 0){
-      hDistInFOV = std::numeric_limits<double>::infinity(); // shower is fully contained in hFOV; this distance is infinity now
-    }else{
-      if (azimuth != 0 && dAzimuth == 0) // single angle, tau emerges at dAzimuth = 0
-	hDistInFOV = l*sin(halfHFOV)/sin(eta0);
-      if (azimuth > 0 && dAzimuth > 0) // positive azimuth and an positive azimuthal walk
-	hDistInFOV = l*sin(halfHFOV-dAzimuth)/sin(eta0);
-      if (azimuth < 0 && dAzimuth > 0) // negative azimuth and an positive azimuthal walk
-	hDistInFOV = l*sin(halfHFOV+dAzimuth)/sin(eta1);
-      if (azimuth > 0 && dAzimuth < 0)// positive azimuth and an negative azimuthal walk
-	hDistInFOV = l*sin(halfHFOV+abs(dAzimuth))/sin(eta1);
-      if (azimuth < 0 && dAzimuth < 0 )// negative azimuth and an negative azimuthal walk
-	hDistInFOV = l*sin(halfHFOV-abs(dAzimuth))/sin(eta0);
-      if (azimuth == 0) // special condition tragectory points to the telescope  
-	hDistInFOV = l;
+    // if (eta0 <= 0 || eta1 <= 0){
+    //   hDistInFOV = std::numeric_limits<double>::infinity(); // shower is fully contained in hFOV; this distance is infinity now
+    // }else{
+    
+    if (azimuth != 0 && dAzimuth == 0){ // single angle, tau emerges at dAzimuth = 0
+      cout << "single angle" << endl;
+      hDistInFOV = l*sin(halfHFOV)/sin(eta0);
     }
+    // if (azimuth > 0 && dAzimuth > 0) // positive azimuth and an positive azimuthal walk
+    // 	hDistInFOV = l*sin(halfHFOV-dAzimuth)/sin(eta0);
+    // if (azimuth < 0 && dAzimuth > 0) // negative azimuth and an positive azimuthal walk
+    // 	hDistInFOV = l*sin(halfHFOV+dAzimuth)/sin(eta1);
+    // if (azimuth > 0 && dAzimuth < 0)// positive azimuth and an negative azimuthal walk
+    // 	hDistInFOV = l*sin(halfHFOV+abs(dAzimuth))/sin(eta1);
+    // if (azimuth < 0 && dAzimuth < 0 )// negative azimuth and an negative azimuthal walk
+    // 	hDistInFOV = l*sin(halfHFOV-abs(dAzimuth))/sin(eta0);
+    if (azimuth == 0) // special condition tragectory points to the telescope  
+      hDistInFOV = l;
+    
     Double_t hdShwrLgth = dShwrLgth*cos(elevation); // we are only interested in the horizontal component of the shower length
     Double_t hd90PctDecayLength = d90PctDecayLength*cos(elevation);
     //cout <<"Tau emergence distance: "<<l<<endl;
@@ -995,7 +998,7 @@ Double_t PDecay(Double_t Etau, Double_t y, Double_t elevation, Double_t azimuth,
     // Check if the full horizontal component of the shower will be captured. 
     if (hdShwrLgth+hd90PctDecayLength > hDistInFOV){
       return 0;
-    }
+      }
   }
   //-----------------------------------------------------
 
@@ -2352,16 +2355,18 @@ void GetAcceptanceInFOV(Double_t dMinEnu, Double_t dMaxEnu, TH1D *hTau, TH2F *sk
 	  for(int azi = -(MaxAzimuth/DeltaAngleAz); azi <= (int)(MaxAzimuth / DeltaAngleAz); azi++) //looping over azimuth w/ steps of DeltaAngleAz (-180 to 180)
 	    {
 	      azimuth = azi * DeltaAngleAz;
-	      cout << azimuth <<endl;
 	      
-	      for (double dAzi= -(hFOV/2/DeltaAngleAz); dAzi <= (hFOV/2/DeltaAngleAz); dAzi++) //looping over azimuth in FoV in steps of DeltaAngleAz
+	      dEarth = DistanceThroughEarth(y, elevation, azimuth);
+	      GetTauDistribution(hTau,dEarth,dMinEnu,dMaxEnu); //tau distribution is calculated
+	      
+	      for (double dAzi= 0; dAzi < 1; dAzi++) //looping over azimuth in FoV in steps of DeltaAngleAz
 		{
 		  
 		  dAzimuth = dAzi * DeltaAngleAz;
-		  dEarth = DistanceThroughEarth(y, elevation, azimuth);
-		  GetTauDistribution(hTau,dEarth,dMinEnu,dMaxEnu); //tau distribution is calculated
+		  
 		  dDeltaAcceptance = 0;
 		  dP = 0;
+		  
 		  for(int i=0;i<hTau->GetNbinsX();i++)
 		    {
 		      if(hTau->GetBinContent(i+1)>0)
@@ -2391,21 +2396,22 @@ void GetAcceptanceInFOV(Double_t dMinEnu, Double_t dMaxEnu, TH1D *hTau, TH2F *sk
 		  cout<<"Y: "<<y<<", Elevation: "<<elevation <<", Azimuth: " << azimuth<< ""<< ", dAzimuth: "<< dAzimuth << ", dDeltaAcceptance: " << dDeltaAcceptance <<endl;
 		  
 		  if (dAzimuth == 0)// single angle
+		    cout << "plot single angle" << endl;
 		    skymapSingleAngle1->Fill(azimuth, (-1 * elevation), dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth != 0 && azimuth == 0)// no tau azimuth
-		    skymapSingleAngle1->Fill(-1 * dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(-1 * dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth > 0 && azimuth < 0)// gamma2 triangle
-		    skymapSingleAngle1->Fill(-1*(abs(azimuth)+dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(-1*(abs(azimuth)+dAzimuth), (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth > 0 && azimuth > 0 && (dAzimuth - azimuth) >= 0)// inner gamma1 triangle
-		    skymapSingleAngle1->Fill(azimuth-dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth-dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth > 0 && azimuth > 0 && (dAzimuth - azimuth) != 0)// gamma1 triangle
-		    skymapSingleAngle1->Fill(azimuth-dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth-dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth < 0 && azimuth > 0)// gamma4 triangle
-		    skymapSingleAngle1->Fill(azimuth+abs(dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth+abs(dAzimuth), (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth < 0 && azimuth < 0 && (abs(dAzimuth) - abs(azimuth)) != 0)// gamma3 triangle
-		    skymapSingleAngle1->Fill(abs(dAzimuth)-abs(azimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(abs(dAzimuth)-abs(azimuth))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
-		  if (dAzimuth < 0 && azimuth < 0 && (abs(dAzimuth) - abs(azimuth)) < 0)// gamma3 inner triangle
-		    skymapSingleAngle1->Fill(abs(azimuth)-abs(dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(abs(azimuth)-abs(dAzimuth))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth != 0 && azimuth == 0)// no tau azimuth
+		  //   skymapSingleAngle1->Fill(-1 * dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(-1 * dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth > 0 && azimuth < 0)// gamma2 triangle
+		  //   skymapSingleAngle1->Fill(-1*(abs(azimuth)+dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(-1*(abs(azimuth)+dAzimuth), (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth > 0 && azimuth > 0 && (dAzimuth - azimuth) >= 0)// inner gamma1 triangle
+		  //   skymapSingleAngle1->Fill(azimuth-dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth-dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth > 0 && azimuth > 0 && (dAzimuth - azimuth) != 0)// gamma1 triangle
+		  //   skymapSingleAngle1->Fill(azimuth-dAzimuth, (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth-dAzimuth, (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth < 0 && azimuth > 0)// gamma4 triangle
+		  //   skymapSingleAngle1->Fill(azimuth+abs(dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(azimuth+abs(dAzimuth), (-1 * elevation))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth < 0 && azimuth < 0 && (abs(dAzimuth) - abs(azimuth)) != 0)// gamma3 triangle
+		  //   skymapSingleAngle1->Fill(abs(dAzimuth)-abs(azimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(abs(dAzimuth)-abs(azimuth))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
+		  // if (dAzimuth < 0 && azimuth < 0 && (abs(dAzimuth) - abs(azimuth)) < 0)// gamma3 inner triangle
+		  //   skymapSingleAngle1->Fill(abs(azimuth)-abs(dAzimuth), (-1 * elevation), skymapSingleAngle1->GetBinContent(skymapSingleAngle1->FindBin(abs(azimuth)-abs(dAzimuth))) + dDeltaAcceptance*sin(elevation/180.*pi)*y*dConversion);
 		}
 	    }
 	}
