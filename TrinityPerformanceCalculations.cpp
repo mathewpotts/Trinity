@@ -2532,6 +2532,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   // if it is less then 360 degrees we are limiting horizontal FOV
   hFOV = 5; // in degrees
   halfHFOV = (hFOV/2.) * (pi/180.);// in radians
+  Double_t teleDirection = -84.; // Telescope direction relative to north
   if (hFOV < 360){
     limFOV = kTRUE;
       }else{
@@ -2676,10 +2677,6 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   TH2F *sensEq = new TH2F("sensEq", "Sensitivity after 1 year of observation (10^{8} GeV Normalization)", 361, -180.05, 180.05, 181, -90.05, 90.05);
   TH2F *sensEqI = (TH2F*)sensEq->Clone("sensint");
   
-  //TFile *fileDe = TFile::Open("singleangle.root");
-  //TH2F *skymapSingleAngle = (TH2F*)fileDe->Get("skymapSingleAngle");
-  
-  
   //histogram formatting
   skymapSingleAngle->GetXaxis()->SetTitle("Azimuth Angle [degrees]");
   skymapSingleAngle->GetYaxis()->SetTitle("Elevation Angle [degrees]");
@@ -2690,11 +2687,22 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   skyC->Divide(2,1);
 
   if (limFOV){
+    //open 5 degree fov file
+    TFile *fileDe = TFile::Open("skymap5degree.root");
+    TH2F *skymapSingleAngle = (TH2F*)fileDe->Get("skymapSingleAngle");
+    
     //getting the acceptance in a restricted FOV
-    GetAcceptanceInFOV(logEmin, logEmax, hTau, skymapSingleAngle, hFOV);
+    //GetAcceptanceInFOV(logEmin, logEmax, hTau, skymapSingleAngle, hFOV);
+
+    skymapFull360Sweep = (TH2F*)skymapSingleAngle->Clone("skymapSingleAngle");
+    skymapFull360Sweep->SetTitle("Acceptance Skymap of 360 Degree Airshower Azimuth Sweep");
   }else{
+    //open single angle file for 360 degree fov
+    TFile *fileDe = TFile::Open("singleangle.root");
+    TH2F *skymapSingleAngle = (TH2F*)fileDe->Get("skymapSingleAngle");
+    
     //getting the single angle acceptance according to the variables above 
-    GetAcceptanceSingleAngle(logEmin, logEmax, hTau, skymapSingleAngle);
+    //GetAcceptanceSingleAngle(logEmin, logEmax, hTau, skymapSingleAngle);
     
     //projecting the single angle of acceptance over a 360 degree FoV
     for(int yBins = 1; yBins <= skymapSingleAngle->GetNbinsY(); yBins++)
@@ -2712,11 +2720,10 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   for(int i = 1; i <= skymapFull360Sweep->GetNbinsY(); i++)
     {
       if(skymapFull360Sweep->GetBinContent(4, i) > 0) {
-	vFov += 0.1;
-	cout<<skymapFull360Sweep->GetBinContent(4, i)<<endl;
+  	vFov += 0.1;
+  	cout<<skymapFull360Sweep->GetBinContent(4, i)<<endl;
       }
     }
-  
   //~ return;
   
   skyC->cd(1);
@@ -2728,7 +2735,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   gPad->SetLogz(1);
   gPad->SetRightMargin(0.15);
   skymapFull360Sweep->Draw("COLZ"); //plot 360 sweep skymap
-  return;
+  //~ return;
   ifstream in;
   in.open("1yrmod.txt"); //open ephem file
   //~ return;
@@ -2753,11 +2760,14 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
       //~ az = az - 360.0;
       //~ if(az < -180.0)
       //~ az = az + 360.0;
-      int xBin = (int)((az + 180.1) * 10);
+      int xBin = (int)((az + 180.1 + teleDirection) * 10);
       int yBin = (int)((alt + 90.1) * 10);
+      //cout <<"xBin: "<<xBin<<" yBin: "<<yBin<<" r: "<<r<<" d: "<<d<<endl;
       skymapInstantConverage->Fill((-1 * r), d, skymapFull360Sweep->GetBinContent(xBin, yBin));
     }
   }
+
+  //skymapInstantConverage->Draw("colz");
   
   TCanvas *skyProjInstantEq = new TCanvas("skyProjInstantEq","Instant Skymap Coverage (Equatorial Coordinates)",1500,750); //canvas for instant converage skymap
   TPad *padI = (TPad*)pad1->Clone("padI");
@@ -2883,7 +2893,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   //~ skymapSingleAngle->Write();
   //~ f2->Close();
   
-  //~ return;
+  //~return;
   
   Double_t totalT = 0, totalAcc = 0, maxT = 0, minT = 999999;
   int maxDay = -1, minDay = -1, noObsdays = 0;
@@ -3013,7 +3023,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
 	  daycounter++;
 
 	  //evolving the horizotal skymap over time and projecting onto equatorial coordinates
-	  for(int i = 0; i < nSteps; i++) { //eqatorial
+	  for(int i = 0; i < nSteps; i++) { //equatorial
 	    for(int r = -180; r <= 180; r++) {
 	      for(int d = -90; d <= 90; d++) {
 		Double_t az = (atan2(sin((LST - r) * degconv), cos((LST - r) * degconv) * sin(latitude * degconv) - tan(d * degconv) * cos(latitude * degconv)) * 180 / pi) - 180;
@@ -3022,7 +3032,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
 		  az = az - 360.0;
 		else if(az < -180.0)
 		  az = az + 360.0;
-		int xBin = (int)((az + 180.1) * 10);
+		int xBin = (int)((az + 180.1 + teleDirection) * 10);
 		int yBin = (int)((alt + 90.1) * 10);
 		if( !(nestNone && LST > riseTimeMoon && LST < setTimeMoon) && 
 		    !(nestSun && LST > riseTimeMoon && LST < setTimeMoon) && 
@@ -3039,6 +3049,15 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
 	      LST -= 360.0;
 	  }
 	}
+      
+      TCanvas *test = new TCanvas("test","test",1500,750);
+      test->Divide(2,1);
+      test->cd(1);
+      TT->Draw("colz");
+      test->cd(2);
+      skymapTimeExp->Draw("colz");
+      //return;
+
       //galactic & supergal projections done w.r.t the equatorial plot after time evolution has finished
       for(int l = -180; l <= 180; l++)
 	{
@@ -3106,12 +3125,12 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   cout<<"Number of days where no observation was possible: "<<noObsdays<<endl;
   
   cout<<"Vertical FoV of telescope (deg): "<<vFov<<endl;
-  cout<<"Horizontal FoV of telescope (deg): "<<360<<endl;
-  cout<<"Area of FoV: "<<(vFov * 360.) * (pi * pi) / (180. * 180.)<<" sr"<<endl;
-  cout<<"Rate of gamma-ray bursts observed per day: "<<((vFov * 360.) * (pi * pi) / (180. * 180.)) / (4. * pi)<<endl;
-  cout<<"Rate of gamma-ray bursts observed per year: "<<((vFov * 360.) * (pi * pi) / (180. * 180.)) / (4. * pi) * 365.25<<endl;
-  cout<<"Rate of gamma-ray bursts observed per day with duty cycle: "<<((vFov * 360.) * (pi * pi) / (180. * 180.)) / (4. * pi) * totalT / (365.25 * 360.)<<endl;
-  cout<<"Rate of gamma-ray bursts observed per year with duty cycle: "<<((vFov * 360.) * (pi * pi) / (180. * 180.)) / (4. * pi) * 365.25 * totalT / (365.25 * 360.)<<endl;
+  cout<<"Horizontal FoV of telescope (deg): "<<hFOV<<endl;
+  cout<<"Area of FoV: "<<(vFov * hFOV) * (pi * pi) / (180. * 180.)<<" sr"<<endl;
+  cout<<"Rate of gamma-ray bursts observed per day: "<<((vFov * hFOV) * (pi * pi) / (180. * 180.)) / (4. * pi)<<endl;
+  cout<<"Rate of gamma-ray bursts observed per year: "<<((vFov * hFOV) * (pi * pi) / (180. * 180.)) / (4. * pi) * 365.25<<endl;
+  cout<<"Rate of gamma-ray bursts observed per day with duty cycle: "<<((vFov * hFOV) * (pi * pi) / (180. * 180.)) / (4. * pi) * totalT / (365.25 * 360.)<<endl;
+  cout<<"Rate of gamma-ray bursts observed per year with duty cycle: "<<((vFov * hFOV) * (pi * pi) / (180. * 180.)) / (4. * pi) * 365.25 * totalT / (365.25 * 360.)<<endl;
   
   
   //initializing and formatting graphical elements for the galactic coordinate skymap
@@ -3345,7 +3364,6 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
     labelsEq[i]->Draw();
   }
   
-  //Piss();
   TCanvas *skyTimeExpC = new TCanvas("skyTimeExpC","Skymap Time Exposure",1500,750);
   skyTimeExpC->cd(1);
   skyTimeExpC->SetRightMargin(0.2);
@@ -3810,7 +3828,7 @@ int main (int argc, char **argv) {
   
   //CalculateAcceptanceVsTelescopeHeight(hTau);
   //
-  CalculateAcceptanceVsTriggerWindow(hTau);
+  //CalculateAcceptanceVsTriggerWindow(hTau);
   //
   //CalculateAcceptanceVsThreshold(hTau);
   //
@@ -3822,7 +3840,7 @@ int main (int argc, char **argv) {
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Skyplots start here
   //
-  //PlotAcceptanceSkymaps(hTau);
+  PlotAcceptanceSkymaps(hTau);
  
 /*
   cout<<"DEBUGGING"<<endl;
