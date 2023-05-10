@@ -2546,9 +2546,9 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
 
   // Setting Value for the FOV input value
   // if it is less then 360 degrees we are limiting horizontal FOV
-  hFOV = 5; // in degrees
+  hFOV = 360; // in degrees
   halfHFOV = (hFOV/2.) * (pi/180.);// in radians
-  Double_t teleDirection = -84.; // Telescope direction relative to north
+  Double_t teleDirection = 0.; // Telescope direction relative to north
   if (hFOV < 360){
     limFOV = kTRUE;
       }else{
@@ -2689,7 +2689,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   TH2F *skymapFullProjection = new TH2F("skymapFullProjection","360 FoV Projection In Galactic Coordinates Over 1 Year of Exposure", 361, -180.05, 180.05, 181, -90.05, 90.05); //galactic
   TH2F *skymapProjSuperGal = new TH2F("skymapProjSuperGal","360 FoV Projection In Supergalactic Coordinates Over 1 Year of Exposure", 361, -180.05, 180.05, 181, -90.05, 90.05); //supergal
   TH2F *skymapProjEq = new TH2F("skymapProjEq","360 FoV Projection In Equatorial Coordinates Over 1 Year of Exposure", 361, -180.05, 180.05, 181, -90.05, 90.05); //equatorial
-  TH2F *skymapInstantConverage = new TH2F("skymapInstantConverage","Instantanious Sky Coverage In Equatorial Coordinates", 361, -180.05, 180.05, 181, -90.05, 90.05); //histogram for instant sky coverage
+  TH2F *skymapInstantConverage = new TH2F("skymapInstantConverage","Instantaneous Sky Coverage In Equatorial Coordinates", 361, -180.05, 180.05, 181, -90.05, 90.05); //histogram for instant sky coverage
   TH2F *nuevents = (TH2F*)skymapProjEq->Clone("nuevents");
   TH2F *TT = (TH2F*)skymapFull360Sweep->Clone("TT");
   TH2F *skymapTimeExp = new TH2F("skymapTimeExp","Souce Exposure Times", 361, -180.05, 180.05, 181, -90.05, 90.05);
@@ -2738,9 +2738,9 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   
   for(int i = 1; i <= skymapFull360Sweep->GetNbinsY(); i++)
     {
-      if(skymapFull360Sweep->GetBinContent(4, i) > 0) {
+      if(skymapFull360Sweep->GetBinContent(1801, i) > 0) {
   	vFov += 0.1;
-  	cout<<skymapFull360Sweep->GetBinContent(4, i)<<endl;
+  	cout<<skymapFull360Sweep->GetBinContent(1801, i)<<endl;
       }
     }
   //~ return;
