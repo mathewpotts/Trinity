@@ -2528,8 +2528,11 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   Double_t logEmax = 10; //max energy log
   Double_t LST = 0;
   Double_t degconv = pi/180.0;
-  Double_t Enaught = 1e8; //GeV
-  Double_t Fnaught = 6.694e-23; //GeV^-1 cm^-2 s^-1
+  //Double_t Enaught = 1e8; //GeV
+  //Double_t Fnaught = 6.694e-23; //GeV^-1 cm^-2 s^-1
+  Double_t Enaught = 1e3; //GeV
+  Double_t Fnaught = 15e-14; //GeV^-1 cm^-2 s^-1
+  nuIndex = 3.2;
   Double_t normInverse = (pow(pow(10, logEmin), (1 - nuIndex)) - pow(pow(10, logEmax), (1 - nuIndex))) / (nuIndex - 1); // integral of E^-nuIndex from Emin to Emax to correct for the normalization in the GetTauDistibution function
   //~ normInverse = 1.0;
   //~ multNorm = kFALSE;
@@ -2540,15 +2543,15 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   Double_t dFoV = 2;  //test 0, 1, 2, 10
   tanFoV = tan(dFoV/180.*pi);
   dFoVBelow =  3/180.*pi; 
-  iMirrorSize = 2;
+  iMirrorSize = 0;
   dMinimumNumberPhotoelectrons = dThreshold[iMirrorSize]/dMirrorA[iMirrorSize]; 
   dMinLength = 0.3;
 
   // Setting Value for the FOV input value
   // if it is less then 360 degrees we are limiting horizontal FOV
-  hFOV = 360; // in degrees
+  hFOV = 5; // in degrees
   halfHFOV = (hFOV/2.) * (pi/180.);// in radians
-  Double_t teleDirection = 0.; // Telescope direction relative to north
+  Double_t teleDirection = -84.; // Telescope direction relative to north
   if (hFOV < 360){
     limFOV = kTRUE;
       }else{
@@ -2556,7 +2559,7 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
   }
 
   // Setting if you are looking at disfuse or point sources
-  bPointSources = kTRUE; 
+  bPointSources = kFALSE; 
   
   // TGraph *a = new TGraph();
   // cout<<CalculateAcceptance(logEmin, logEmax, a, hTau)<<endl;
@@ -2715,6 +2718,21 @@ void PlotAcceptanceSkymaps(TH1D *hTau)
 
     skymapFull360Sweep = (TH2F*)skymapSingleAngle->Clone("skymapSingleAngle");
     skymapFull360Sweep->SetTitle("Acceptance Skymap of 360 Degree Airshower Azimuth Sweep");
+
+    // //intergrating over elevations angles
+    // for(int yBins = 1; yBins <= skymapSingleAngle->GetNbinsY(); yBins++)
+    //   {
+    // 	Double_t comboBin = 0;
+    // 	for(int xBins = 1; xBins <= skymapSingleAngle->GetNbinsX(); xBins++)
+    // 	  comboBin += skymapSingleAngle->GetBinContent(xBins, yBins);
+    // 	for(int xBins = 1; xBins <= skymapSingleAngle->GetNbinsX(); xBins++)
+    // 	  {
+    // 	    if (skymapSingleAngle->GetBinContent(xBins,yBins) > 0)
+    // 	      {
+    // 		skymapFull360Sweep->SetBinContent(xBins, yBins, comboBin);
+    // 	      }
+    // 	  }
+    //   }
   }else{
     //open single angle file for 360 degree fov
     //TFile *fileDe = TFile::Open("singleangle.root");
